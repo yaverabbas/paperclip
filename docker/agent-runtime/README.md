@@ -82,4 +82,4 @@ The shim makes no assumptions about command structure; it is harness-agnostic. N
 
 ## Publishing
 
-`.github/workflows/agent-runtime-images.yml` builds and pushes the default scope (base, opencode, pi, codex, gemini, claude) on `workflow_dispatch` (with an explicit version tag) or on pushes to `master` touching these paths, then signs each digest with cosign keyless OIDC.
+`.github/workflows/agent-runtime-images.yml` builds and pushes the default scope (base, opencode, pi, codex, gemini, claude) on `workflow_dispatch` (with an explicit version tag) or on pushes to `main` touching these paths, then signs each digest with cosign keyless OIDC.

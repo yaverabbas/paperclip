@@ -15,7 +15,7 @@
 
 - Build pack: **Dockerfile** (repo root `Dockerfile`)
 - Repo: `yaverabbas/paperclip`
-- Branch: **`master` only after PR #2 is merged** (Dockerfile must include `make`/`g++` and `packages/adapters/deflector/package.json` in the deps stage). Until then, canary on `feature/deflector-adapter`.
+- Branch: **`main`** (PR #2 is already merged; Dockerfile includes `make`/`g++` and `packages/adapters/deflector/package.json` in the deps stage). There is no `master` branch on this fork.
 - Base image from Dockerfile: `node:lts-trixie-slim` (Node 24 LTS on the smoke run; newer than prod's Node 20)
 - Smoke proof (CI): https://github.com/yaverabbas/paperclip/actions/runs/31866886911 — image build + `better-sqlite3` open/insert/select **success**
 
@@ -25,7 +25,7 @@
 2. Prefer a **new Application** resource (cleaner than converting the old Compose service):
    - **+ New** → Application → GitHub App / private repo
    - Repository: `yaverabbas/paperclip`
-   - Branch: `master`
+   - Branch: `main`
    - Build Pack: **Dockerfile**
    - Dockerfile location: `/Dockerfile` (repo root)
    - Port: `3100` (matches Dockerfile `EXPOSE 3100`)
@@ -48,6 +48,7 @@
 - Do not publish under `@paperclipai/*` on npm (scope not owned).
 - Do not hire Deflector on AIP/ONS until this deploy is live and verified.
 - Do not leave both old Compose and new Dockerfile apps bound to `goc.yaaver.com` at once.
+- Do not point Coolify at `master`; this fork renamed that branch to `main`.
 
 ## Verification already automated in PR
 
