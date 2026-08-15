@@ -17,7 +17,7 @@ Raw dumps kept outside the Paperclip repo at `../phase0-data/` (not committed).
 - Match: `originKind == stranded_issue_recovery`
 - Title: `^Recover (stalled issue|missing next step)\b`
 - Gate: origin issue status is `done` or `cancelled`
-- Action: mark recovery issue `done` with Deflector comment
+- Action: mark recovery issue `done` with AI Deflector comment
 
 AIP join check: 575 stranded recoveries had a terminal origin; most historical resolutions were `done`.
 

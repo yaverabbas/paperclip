@@ -25,7 +25,7 @@ const KNOWN_DEFAULTS: Record<string, AdapterCapabilities> = {
   opencode_local: { supportsInstructionsBundle: true, supportsSkills: true, supportsLocalAgentJwt: true, requiresMaterializedRuntimeSkills: true, supportsModelProfiles: true, supportsAcp: false },
   pi_local: { supportsInstructionsBundle: true, supportsSkills: true, supportsLocalAgentJwt: true, requiresMaterializedRuntimeSkills: true, supportsModelProfiles: false, supportsAcp: false },
   openclaw_gateway: ALL_FALSE,
-  deflector_local: { supportsInstructionsBundle: false, supportsSkills: false, supportsLocalAgentJwt: true, requiresMaterializedRuntimeSkills: false, supportsModelProfiles: false, supportsAcp: false },
+  ai_deflector_local: { supportsInstructionsBundle: false, supportsSkills: false, supportsLocalAgentJwt: true, requiresMaterializedRuntimeSkills: false, supportsModelProfiles: false, supportsAcp: false },
   process: { supportsInstructionsBundle: false, supportsSkills: false, supportsLocalAgentJwt: true, requiresMaterializedRuntimeSkills: false, supportsModelProfiles: false, supportsAcp: false },
 };
 

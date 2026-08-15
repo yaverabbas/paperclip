@@ -25,12 +25,12 @@ export async function testEnvironment(
   const auditPath = asString(config.auditPath, defaultAuditPath());
 
   checks.push({
-    code: "deflector_kb_path",
+    code: "ai_deflector_kb_path",
     level: "info",
     message: `KB path: ${kbPath}`,
   });
   checks.push({
-    code: "deflector_audit_path",
+    code: "ai_deflector_audit_path",
     level: "info",
     message: `Audit path: ${auditPath}`,
   });
@@ -41,15 +41,15 @@ export async function testEnvironment(
       const seeded = seedKbIfEmpty(db);
       const patterns = loadPatterns(db);
       checks.push({
-        code: "deflector_kb_readable",
+        code: "ai_deflector_kb_readable",
         level: "info",
         message: `KB OK (${patterns.length} enabled patterns${seeded ? `, seeded ${seeded}` : ""})`,
       });
       if (patterns.length === 0) {
         checks.push({
-          code: "deflector_kb_empty",
+          code: "ai_deflector_kb_empty",
           level: "warn",
-          message: "KB has zero enabled patterns; Deflector will never auto-resolve.",
+          message: "KB has zero enabled patterns; AI Deflector will never auto-resolve.",
         });
       }
     } finally {
@@ -57,7 +57,7 @@ export async function testEnvironment(
     }
   } catch (err) {
     checks.push({
-      code: "deflector_kb_error",
+      code: "ai_deflector_kb_error",
       level: "error",
       message: err instanceof Error ? err.message : "Failed to open KB",
       detail: kbPath,

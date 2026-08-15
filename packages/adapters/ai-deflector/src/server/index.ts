@@ -1,6 +1,6 @@
 export { execute } from "./execute.js";
 export { testEnvironment } from "./test.js";
-export { parseDeflectorStdout } from "./parse.js";
+export { parseAiDeflectorStdout } from "./parse.js";
 export {
   matchIssue,
   SEED_PATTERNS,

@@ -4,7 +4,7 @@ import { Field, DraftInput } from "../../components/agent-config-primitives";
 const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
 
-export function DeflectorConfigFields({
+export function AiDeflectorConfigFields({
   isCreate,
   values,
   set,
@@ -26,7 +26,7 @@ export function DeflectorConfigFields({
             else mark("adapterConfig", "kbPath", v);
           }}
           className={inputClass}
-          placeholder="~/.paperclip/instances/default/deflector/kb.sqlite"
+          placeholder="~/.paperclip/instances/default/ai-deflector/kb.sqlite"
         />
       </Field>
       <Field label="Audit path" hint="Optional absolute path to audit JSONL">
@@ -41,7 +41,7 @@ export function DeflectorConfigFields({
             else mark("adapterConfig", "auditPath", v);
           }}
           className={inputClass}
-          placeholder="~/.paperclip/instances/default/deflector/audit.jsonl"
+          placeholder="~/.paperclip/instances/default/ai-deflector/audit.jsonl"
         />
       </Field>
     </>

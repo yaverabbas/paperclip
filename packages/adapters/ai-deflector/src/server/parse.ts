@@ -1,10 +1,10 @@
-export function parseDeflectorStdout(stdout: string): {
+export function parseAiDeflectorStdout(stdout: string): {
   matched: boolean | null;
   patternId: string | null;
   summary: string;
 } {
   const text = stdout ?? "";
-  const resolved = /Deflector: resolved via ([a-z0-9_]+)/i.exec(text);
+  const resolved = /AI Deflector: resolved via ([a-z0-9_]+)/i.exec(text);
   if (resolved) {
     return { matched: true, patternId: resolved[1] ?? null, summary: resolved[0] };
   }

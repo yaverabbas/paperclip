@@ -1,9 +1,9 @@
 /**
- * Seed Deflector KB SQLite from built-in high-confidence patterns.
+ * Seed AI Deflector KB SQLite from built-in high-confidence patterns.
  *
  * Usage:
- *   pnpm --filter @paperclipai/adapter-deflector seed:kb
- *   DEFLECTOR_KB_PATH=/path/to/kb.sqlite pnpm --filter @paperclipai/adapter-deflector seed:kb
+ *   pnpm --filter @paperclipai/adapter-ai-deflector seed:kb
+ *   AI_DEFLECTOR_KB_PATH=/path/to/kb.sqlite pnpm --filter @paperclipai/adapter-ai-deflector seed:kb
  *
  * Phase 0 mining notes (2026-08-15 against goc.yaaver.com, GET-only):
  * - AIP: 8601 issues (1164 stranded_issue_recovery)
@@ -16,7 +16,7 @@
 import { defaultKbPath, SEED_PATTERNS } from "../src/server/match.js";
 import { openKb, upsertPatterns } from "../src/server/kb.js";
 
-const kbPath = process.env.DEFLECTOR_KB_PATH?.trim() || defaultKbPath();
+const kbPath = process.env.AI_DEFLECTOR_KB_PATH?.trim() || defaultKbPath();
 const db = openKb(kbPath);
 upsertPatterns(db, SEED_PATTERNS);
 const count = db.prepare("SELECT COUNT(*) AS c FROM patterns").get() as { c: number };

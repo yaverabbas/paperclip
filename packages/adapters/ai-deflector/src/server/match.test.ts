@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { matchIssue, SEED_PATTERNS } from "./match.js";
-import { parseDeflectorStdout } from "./parse.js";
+import { parseAiDeflectorStdout } from "./parse.js";
 
 describe("matchIssue", () => {
   it("matches stranded recovery when origin is already done", () => {
@@ -73,10 +73,10 @@ describe("matchIssue", () => {
   });
 });
 
-describe("parseDeflectorStdout", () => {
+describe("parseAiDeflectorStdout", () => {
   it("parses resolved line", () => {
-    const parsed = parseDeflectorStdout(
-      "Deflector: resolved via stranded_issue_recovery_source_terminal\n",
+    const parsed = parseAiDeflectorStdout(
+      "AI Deflector: resolved via stranded_issue_recovery_source_terminal\n",
     );
     expect(parsed.matched).toBe(true);
     expect(parsed.patternId).toBe("stranded_issue_recovery_source_terminal");
@@ -94,7 +94,7 @@ describe("kb sqlite bindings", () => {
       const { mkdtempSync, rmSync } = await import("node:fs");
       const { join } = await import("node:path");
       const { tmpdir } = await import("node:os");
-      const dir = mkdtempSync(join(tmpdir(), "deflector-kb-"));
+      const dir = mkdtempSync(join(tmpdir(), "ai-deflector-kb-"));
       const kbPath = join(dir, "kb.sqlite");
       try {
         const db = openKb(kbPath);

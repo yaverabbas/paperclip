@@ -26,7 +26,7 @@ function makeCtx(overrides: {
 }): AdapterExecutionContext {
   return {
     runId: "run-1",
-    agent: { id: "agent-1", companyId: "co-1", name: "Deflector", adapterType: "deflector_local" } as never,
+    agent: { id: "agent-1", companyId: "co-1", name: "AI Deflector", adapterType: "ai_deflector_local" } as never,
     runtime: {} as never,
     config: {
       kbPath: overrides.kbPath,
@@ -57,7 +57,7 @@ describe("execute", () => {
   });
 
   it("resolves when pattern matches and origin is terminal", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "deflector-ex-"));
+    const dir = mkdtempSync(join(tmpdir(), "ai-deflector-ex-"));
     const kbPath = join(dir, "kb.sqlite");
     const auditPath = join(dir, "audit.jsonl");
     writeFileSync(auditPath, "");
@@ -103,7 +103,7 @@ describe("execute", () => {
   });
 
   it("does nothing (no PATCH) when no pattern matches", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "deflector-ex-"));
+    const dir = mkdtempSync(join(tmpdir(), "ai-deflector-ex-"));
     const kbPath = join(dir, "kb.sqlite");
     const auditPath = join(dir, "audit.jsonl");
     writeFileSync(auditPath, "");

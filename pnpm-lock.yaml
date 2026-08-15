@@ -206,7 +206,7 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
-  packages/adapters/deflector:
+  packages/adapters/ai-deflector:
     dependencies:
       '@paperclipai/adapter-utils':
         specifier: workspace:*
@@ -759,9 +759,9 @@ importers:
       '@paperclipai/adapter-cursor-local':
         specifier: workspace:*
         version: link:../packages/adapters/cursor-local
-      '@paperclipai/adapter-deflector':
+      '@paperclipai/adapter-ai-deflector':
         specifier: workspace:*
-        version: link:../packages/adapters/deflector
+        version: link:../packages/adapters/ai-deflector
       '@paperclipai/adapter-gemini-local':
         specifier: workspace:*
         version: link:../packages/adapters/gemini-local

@@ -69,14 +69,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   if (onMeta) {
     await onMeta({
-      adapterType: "deflector_local",
-      command: "deflector-match",
+      adapterType: "ai_deflector_local",
+      command: "ai-deflector-match",
       cwd: process.cwd(),
       commandArgs: [],
       env: {
         PAPERCLIP_RUN_ID: runId,
-        DEFLECTOR_KB_PATH: kbPath,
-        DEFLECTOR_DRY_RUN: dryRun ? "1" : "0",
+        AI_DEFLECTOR_KB_PATH: kbPath,
+        AI_DEFLECTOR_DRY_RUN: dryRun ? "1" : "0",
       },
     });
   }
@@ -88,7 +88,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     asString(context.taskId, "");
 
   if (!issueId) {
-    await onLog("stdout", "Deflector: no assigned issue in context; nothing to check.\n");
+    await onLog("stdout", "AI Deflector: no assigned issue in context; nothing to check.\n");
     appendAudit(auditPath, {
       ts: new Date().toISOString(),
       runId,
@@ -106,13 +106,13 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       exitCode: 0,
       signal: null,
       timedOut: false,
-      summary: "Deflector skipped (no issue context)",
+      summary: "AI Deflector skipped (no issue context)",
     };
   }
 
   const token = authToken || process.env.PAPERCLIP_API_KEY || "";
   if (!token) {
-    await onLog("stderr", "Deflector: missing API token; refusing to act.\n");
+    await onLog("stderr", "AI Deflector: missing API token; refusing to act.\n");
     appendAudit(auditPath, {
       ts: new Date().toISOString(),
       runId,
@@ -130,14 +130,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       exitCode: 1,
       signal: null,
       timedOut: false,
-      errorMessage: "Deflector missing API token",
-      errorCode: "deflector_auth_missing",
+      errorMessage: "AI Deflector missing API token",
+      errorCode: "ai_deflector_auth_missing",
     };
   }
 
   const issueRes = await apiFetch(apiBase, `/api/issues/${issueId}`, { token, runId });
   if (!issueRes.ok || !issueRes.json || typeof issueRes.json !== "object") {
-    await onLog("stderr", `Deflector: failed to load issue ${issueId} (HTTP ${issueRes.status}).\n`);
+    await onLog("stderr", `AI Deflector: failed to load issue ${issueId} (HTTP ${issueRes.status}).\n`);
     appendAudit(auditPath, {
       ts: new Date().toISOString(),
       runId,
@@ -156,7 +156,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       signal: null,
       timedOut: false,
       errorMessage: `Failed to load issue ${issueId}`,
-      errorCode: "deflector_issue_fetch_failed",
+      errorCode: "ai_deflector_issue_fetch_failed",
     };
   }
 
@@ -190,7 +190,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
     await onLog(
       "stdout",
-      `Deflector: issue=${asString(issue.identifier, issueId)} originKind=${asString(issue.originKind, "-")} originStatus=${originStatus ?? "-"} -> ${match.reason}\n`,
+      `AI Deflector: issue=${asString(issue.identifier, issueId)} originKind=${asString(issue.originKind, "-")} originStatus=${originStatus ?? "-"} -> ${match.reason}\n`,
     );
 
     if (!match.matched || !match.pattern) {
@@ -215,7 +215,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         exitCode: 0,
         signal: null,
         timedOut: false,
-        summary: `Deflector pass-through: ${match.reason}`,
+        summary: `AI Deflector pass-through: ${match.reason}`,
         resultJson: { matched: false, reason: match.reason },
       };
     }
@@ -246,7 +246,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         exitCode: 0,
         signal: null,
         timedOut: false,
-        summary: `Deflector dry-run match: ${pattern.id}`,
+        summary: `AI Deflector dry-run match: ${pattern.id}`,
         resultJson: { matched: true, patternId: pattern.id, dryRun: true },
       };
     }
@@ -262,7 +262,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     });
 
     if (!patch.ok) {
-      await onLog("stderr", `Deflector: PATCH failed HTTP ${patch.status}\n`);
+      await onLog("stderr", `AI Deflector: PATCH failed HTTP ${patch.status}\n`);
       appendAudit(auditPath, {
         ts: new Date().toISOString(),
         runId,
@@ -280,8 +280,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         exitCode: 1,
         signal: null,
         timedOut: false,
-        errorMessage: `Deflector PATCH failed HTTP ${patch.status}`,
-        errorCode: "deflector_patch_failed",
+        errorMessage: `AI Deflector PATCH failed HTTP ${patch.status}`,
+        errorCode: "ai_deflector_patch_failed",
       };
     }
 
@@ -300,12 +300,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       detail: { status: pattern.resolutionStatus, originStatus },
     });
 
-    await onLog("stdout", `Deflector: resolved via ${pattern.id}\n`);
+    await onLog("stdout", `AI Deflector: resolved via ${pattern.id}\n`);
     return {
       exitCode: 0,
       signal: null,
       timedOut: false,
-      summary: `Deflector resolved: ${pattern.id}`,
+      summary: `AI Deflector resolved: ${pattern.id}`,
       resultJson: {
         matched: true,
         patternId: pattern.id,

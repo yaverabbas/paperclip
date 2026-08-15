@@ -1,4 +1,4 @@
-# Deflector (`deflector_local`)
+# AI Deflector (`ai_deflector_local`)
 
 Non-AI pre-check adapter. Deterministic keyword/regex matching against a SQLite KB.
 Auto-resolves only high-confidence repeat issues; everything else is released for normal routing.
@@ -13,11 +13,11 @@ Auto-resolves only high-confidence repeat issues; everything else is released fo
 
 ## Defaults
 
-- KB: `~/.paperclip/instances/default/deflector/kb.sqlite`
-- Audit: `~/.paperclip/instances/default/deflector/audit.jsonl`
+- KB: `~/.paperclip/instances/default/ai-deflector/kb.sqlite`
+- Audit: `~/.paperclip/instances/default/ai-deflector/audit.jsonl`
 
 ## Seed
 
 ```bash
-pnpm --filter @paperclipai/adapter-deflector seed:kb
+pnpm --filter @paperclipai/adapter-ai-deflector seed:kb
 ```

@@ -134,8 +134,8 @@ const adapterDisplayMap: Record<string, AdapterDisplayInfo> = {
     icon: Cpu,
     comingSoon: true,
   },
-  deflector_local: {
-    label: "Deflector",
+  ai_deflector_local: {
+    label: "AI Deflector",
     description: "Deterministic pre-check; auto-resolves known repeat issues",
     icon: Cpu,
   },

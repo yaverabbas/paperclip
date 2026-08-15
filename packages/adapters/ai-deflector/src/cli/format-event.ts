@@ -1,4 +1,4 @@
-export function printDeflectorStreamEvent(event: unknown): void {
+export function printAiDeflectorStreamEvent(event: unknown): void {
   if (typeof event === "string") {
     process.stdout.write(event.endsWith("\n") ? event : `${event}\n`);
     return;

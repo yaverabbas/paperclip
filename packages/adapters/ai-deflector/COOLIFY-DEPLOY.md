@@ -2,7 +2,7 @@
 
 **Owner:** Yaver (Coolify UI only). Do not change Coolify from agents.
 **Goal:** Deploy `yaverabbas/paperclip` from Git instead of `npm install -g paperclipai@…`.
-**Why:** Deflector ships in this fork; we do not own the `paperclipai` npm scope.
+**Why:** AI Deflector ships in this fork; we do not own the `paperclipai` npm scope.
 
 ## Current prod (today)
 
@@ -15,7 +15,7 @@
 
 - Build pack: **Dockerfile** (repo root `Dockerfile`)
 - Repo: `yaverabbas/paperclip`
-- Branch: **`main`** (PR #2 is already merged; Dockerfile includes `make`/`g++` and `packages/adapters/deflector/package.json` in the deps stage). There is no `master` branch on this fork.
+- Branch: **`main`** (PR #2 is already merged; Dockerfile includes `make`/`g++` and `packages/adapters/ai-deflector/package.json` in the deps stage). There is no `master` branch on this fork.
 - Base image from Dockerfile: `node:lts-trixie-slim` (Node 24 LTS on the smoke run; newer than prod's Node 20)
 - Smoke proof (CI): https://github.com/yaverabbas/paperclip/actions/runs/31866886911 — image build + `better-sqlite3` open/insert/select **success**
 
@@ -38,23 +38,23 @@
    - Auth / deployment mode settings already stored under the instance config are fine if the volume is reused
    - Any extra Compose `environment:` keys used today (API keys, model providers, etc.)
 5. Deploy the new Dockerfile app → wait for healthy `GET https://goc.yaaver.com/api/health`
-6. Smoke Deflector on the live image (after merge + deploy):
-   - Confirm adapter type `deflector_local` appears in the UI/API adapter list
-   - Optionally hire Deflector in a throwaway company first (not AIP/ONS yet)
-7. Only after health + Deflector adapter visibility: retire/stop the old Compose npm-based service
+6. Smoke AI Deflector on the live image (after merge + deploy):
+   - Confirm adapter type `ai_deflector_local` appears in the UI/API adapter list
+   - Optionally hire AI Deflector in a throwaway company first (not AIP/ONS yet)
+7. Only after health + AI Deflector adapter visibility: retire/stop the old Compose npm-based service
 
 ## What not to do
 
 - Do not publish under `@paperclipai/*` on npm (scope not owned).
-- Do not hire Deflector on AIP/ONS until this deploy is live and verified.
+- Do not hire AI Deflector on AIP/ONS until this deploy is live and verified.
 - Do not leave both old Compose and new Dockerfile apps bound to `goc.yaaver.com` at once.
 - Do not point Coolify at `master`; this fork renamed that branch to `main`.
 
 ## Verification already automated in PR
 
-Workflow: `.github/workflows/deflector-docker-smoke.yml`
+Workflow: `.github/workflows/ai-deflector-docker-smoke.yml`
 
 - Builds the repo Dockerfile (`node:lts-trixie-slim`)
 - Installs native build tools (`make`, `g++`) so `better-sqlite3` can compile when no prebuild exists for that Node ABI
 - Runs `better-sqlite3` open/insert/select inside the image
-- Resolves `better-sqlite3` from `packages/adapters/deflector`
+- Resolves `better-sqlite3` from `packages/adapters/ai-deflector`

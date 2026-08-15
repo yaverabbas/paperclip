@@ -1,4 +1,4 @@
-export function buildDeflectorConfig(values: Record<string, unknown>): Record<string, unknown> {
+export function buildAiDeflectorConfig(values: Record<string, unknown>): Record<string, unknown> {
   const ac: Record<string, unknown> = {};
   const kbPath = typeof values.kbPath === "string" ? values.kbPath.trim() : "";
   const auditPath = typeof values.auditPath === "string" ? values.auditPath.trim() : "";

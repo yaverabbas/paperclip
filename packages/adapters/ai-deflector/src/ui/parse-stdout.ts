@@ -1,4 +1,4 @@
-export function parseDeflectorStdoutLine(
+export function parseAiDeflectorStdoutLine(
   line: string,
   ts: string,
 ): Array<{ kind: "stdout" | "stderr" | "system"; ts: string; text: string }> {

@@ -12,7 +12,7 @@ import { piLocalUIAdapter } from "./pi-local";
 import { openClawGatewayUIAdapter } from "./openclaw-gateway";
 import { processUIAdapter } from "./process";
 import { httpUIAdapter } from "./http";
-import { deflectorUIAdapter } from "./deflector";
+import { aiDeflectorUIAdapter } from "./ai-deflector";
 import { loadDynamicParser, invalidateDynamicParser, setDynamicParserResultNotifier } from "./dynamic-loader";
 import { SchemaConfigFields, buildSchemaAdapterConfig } from "./schema-config-fields";
 
@@ -66,7 +66,7 @@ function registerBuiltInUIAdapters() {
     openClawGatewayUIAdapter,
     processUIAdapter,
     httpUIAdapter,
-    deflectorUIAdapter,
+    aiDeflectorUIAdapter,
   ]) {
     builtinTypes.add(adapter.type);
     builtinAdaptersByType.set(adapter.type, adapter);

@@ -1,4 +1,4 @@
-name: Deflector Docker Smoke
+name: AI Deflector Docker Smoke
 
 on:
   pull_request:
@@ -6,9 +6,9 @@ on:
       - main
     paths:
       - "Dockerfile"
-      - "packages/adapters/deflector/**"
+      - "packages/adapters/ai-deflector/**"
       - "pnpm-lock.yaml"
-      - ".github/workflows/deflector-docker-smoke.yml"
+      - ".github/workflows/ai-deflector-docker-smoke.yml"
   workflow_dispatch:
 
 permissions:
@@ -34,25 +34,25 @@ jobs:
           context: .
           push: false
           load: true
-          tags: paperclip-deflector-smoke:local
+          tags: paperclip-ai-deflector-smoke:local
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Verify Node + better-sqlite3 inside image
         run: |
           set -euo pipefail
-          docker run --rm --entrypoint node paperclip-deflector-smoke:local \
+          docker run --rm --entrypoint node paperclip-ai-deflector-smoke:local \
             -e "console.log(JSON.stringify({node:process.version,platform:process.platform,arch:process.arch}))"
-          docker run --rm --entrypoint node -w /app paperclip-deflector-smoke:local \
+          docker run --rm --entrypoint node -w /app paperclip-ai-deflector-smoke:local \
             --input-type=module -e "
               import { createRequire } from 'node:module';
               import { mkdtempSync } from 'node:fs';
               import { tmpdir } from 'node:os';
               import { join } from 'node:path';
-              // pnpm nests deps under the workspace package; resolve from deflector.
-              const require = createRequire('/app/packages/adapters/deflector/package.json');
+              // pnpm nests deps under the workspace package; resolve from ai-deflector.
+              const require = createRequire('/app/packages/adapters/ai-deflector/package.json');
               const Database = require('better-sqlite3');
-              const dir = mkdtempSync(join(tmpdir(), 'deflector-'));
+              const dir = mkdtempSync(join(tmpdir(), 'ai-deflector-'));
               const db = new Database(join(dir, 'kb.sqlite'));
               db.exec('CREATE TABLE t (id TEXT PRIMARY KEY)');
               db.prepare('INSERT INTO t (id) VALUES (?)').run('ok');

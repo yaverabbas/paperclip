@@ -43,11 +43,11 @@ export interface MatchResult {
 export const TERMINAL_STATUSES = new Set(["done", "cancelled"]);
 
 export function defaultKbPath(): string {
-  return join(homedir(), ".paperclip", "instances", "default", "deflector", "kb.sqlite");
+  return join(homedir(), ".paperclip", "instances", "default", "ai-deflector", "kb.sqlite");
 }
 
 export function defaultAuditPath(): string {
-  return join(homedir(), ".paperclip", "instances", "default", "deflector", "audit.jsonl");
+  return join(homedir(), ".paperclip", "instances", "default", "ai-deflector", "audit.jsonl");
 }
 
 export function matchIssue(patterns: PatternRule[], candidate: MatchCandidate): MatchResult {
@@ -102,7 +102,7 @@ export const SEED_PATTERNS: PatternRule[] = [
     requireOriginTerminal: true,
     resolutionStatus: "done",
     commentTemplate:
-      "Resolved by Deflector — pattern: stranded_issue_recovery_source_terminal (source issue already {{originStatus}}).",
+      "Resolved by AI Deflector — pattern: stranded_issue_recovery_source_terminal (source issue already {{originStatus}}).",
     companyScope: "all",
     confidence: "high",
     sourceCluster:
@@ -117,7 +117,7 @@ export const SEED_PATTERNS: PatternRule[] = [
     requireOriginTerminal: true,
     resolutionStatus: "done",
     commentTemplate:
-      "Resolved by Deflector — pattern: stranded_recover_stalled_source_terminal (source issue already {{originStatus}}).",
+      "Resolved by AI Deflector — pattern: stranded_recover_stalled_source_terminal (source issue already {{originStatus}}).",
     companyScope: "all",
     confidence: "high",
     sourceCluster: "ONS+AIP Recover stalled issue cluster (1449 titles).",
