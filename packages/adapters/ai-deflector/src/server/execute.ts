@@ -310,7 +310,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         patternId: null,
         confidence: null,
         reason: match.reason,
-        action: dryRun ? "dry_run" : "routed_fallback",
+        action: dryRun ? "dry_run" : "skipped",
         detail: {
           originKind: issue.originKind,
           originStatus,

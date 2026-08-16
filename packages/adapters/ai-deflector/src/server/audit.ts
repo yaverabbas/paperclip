@@ -12,7 +12,7 @@ export interface AuditEntry {
   patternId: string | null;
   confidence: string | null;
   reason: string;
-  action: "resolved" | "skipped" | "dry_run" | "error" | "routed_fallback";
+  action: "resolved" | "skipped" | "dry_run" | "error";
   detail?: Record<string, unknown>;
 }
 
