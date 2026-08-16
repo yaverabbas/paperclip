@@ -1,4 +1,4 @@
-export { execute } from "./execute.js";
+export { execute, resolveAgentId } from "./execute.js";
 export { testEnvironment } from "./test.js";
 export { parseAiDeflectorStdout } from "./parse.js";
 export {

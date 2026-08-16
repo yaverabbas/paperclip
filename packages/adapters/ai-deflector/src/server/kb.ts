@@ -25,6 +25,7 @@ function rowToPattern(row: Record<string, unknown>): PatternRule {
     confidence: (String(row.confidence ?? "high") as ConfidenceTier) || "high",
     sourceCluster: String(row.source_cluster ?? ""),
     enabled: Number(row.enabled ?? 1) === 1,
+    routeToAgent: row.route_to_agent == null ? null : String(row.route_to_agent),
   };
 }
 
@@ -44,10 +45,16 @@ export function openKb(kbPath: string): KbDatabase {
       company_scope TEXT NOT NULL DEFAULT 'all',
       confidence TEXT NOT NULL DEFAULT 'high',
       source_cluster TEXT NOT NULL DEFAULT '',
-      enabled INTEGER NOT NULL DEFAULT 1
+      enabled INTEGER NOT NULL DEFAULT 1,
+      route_to_agent TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_patterns_enabled ON patterns(enabled);
   `);
+  try {
+    db.exec(`ALTER TABLE patterns ADD COLUMN route_to_agent TEXT`);
+  } catch {
+    // Column already exists on DBs created with the current schema.
+  }
   return db;
 }
 
@@ -57,8 +64,9 @@ export function seedKbIfEmpty(db: KbDatabase, patterns: PatternRule[] = SEED_PAT
   const insert = db.prepare(`
     INSERT INTO patterns (
       id, name, title_regex, origin_kind, require_origin_terminal,
-      resolution_status, comment_template, company_scope, confidence, source_cluster, enabled
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      resolution_status, comment_template, company_scope, confidence, source_cluster,
+      enabled, route_to_agent
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   let n = 0;
   for (const p of patterns) {
@@ -74,6 +82,7 @@ export function seedKbIfEmpty(db: KbDatabase, patterns: PatternRule[] = SEED_PAT
       p.confidence,
       p.sourceCluster,
       p.enabled ? 1 : 0,
+      p.routeToAgent,
     );
     n += 1;
   }
@@ -92,8 +101,9 @@ export function upsertPatterns(db: KbDatabase, patterns: PatternRule[]): void {
   const upsert = db.prepare(`
     INSERT INTO patterns (
       id, name, title_regex, origin_kind, require_origin_terminal,
-      resolution_status, comment_template, company_scope, confidence, source_cluster, enabled
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      resolution_status, comment_template, company_scope, confidence, source_cluster,
+      enabled, route_to_agent
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       name = excluded.name,
       title_regex = excluded.title_regex,
@@ -104,7 +114,8 @@ export function upsertPatterns(db: KbDatabase, patterns: PatternRule[]): void {
       company_scope = excluded.company_scope,
       confidence = excluded.confidence,
       source_cluster = excluded.source_cluster,
-      enabled = excluded.enabled
+      enabled = excluded.enabled,
+      route_to_agent = excluded.route_to_agent
   `);
   for (const p of patterns) {
     upsert.run(
@@ -119,6 +130,7 @@ export function upsertPatterns(db: KbDatabase, patterns: PatternRule[]): void {
       p.confidence,
       p.sourceCluster,
       p.enabled ? 1 : 0,
+      p.routeToAgent,
     );
   }
 }

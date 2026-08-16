@@ -18,6 +18,9 @@ export interface PatternRule {
   confidence: ConfidenceTier;
   sourceCluster: string;
   enabled: boolean;
+  /** Agent slug or agent UUID to route the matched issue to.
+   *  null = auto-resolve (existing behaviour). */
+  routeToAgent: string | null;
 }
 
 export interface MatchCandidate {
@@ -108,6 +111,7 @@ export const SEED_PATTERNS: PatternRule[] = [
     sourceCluster:
       "Phase0 AIP+ONS: 1780 stranded_issue_recovery tickets; 575+ cases where origin was already done/cancelled.",
     enabled: true,
+    routeToAgent: null,
   },
   {
     id: "stranded_recover_stalled_source_terminal",
@@ -122,5 +126,6 @@ export const SEED_PATTERNS: PatternRule[] = [
     confidence: "high",
     sourceCluster: "ONS+AIP Recover stalled issue cluster (1449 titles).",
     enabled: true,
+    routeToAgent: null,
   },
 ];

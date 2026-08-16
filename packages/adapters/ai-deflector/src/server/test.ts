@@ -10,6 +10,10 @@ function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+function asBoolean(value: unknown, fallback = false): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
 function summarizeStatus(checks: AdapterEnvironmentCheck[]): AdapterEnvironmentTestResult["status"] {
   if (checks.some((check) => check.level === "error")) return "fail";
   if (checks.some((check) => check.level === "warn")) return "warn";
@@ -23,6 +27,8 @@ export async function testEnvironment(
   const config = (ctx.config ?? {}) as Record<string, unknown>;
   const kbPath = asString(config.kbPath, defaultKbPath());
   const auditPath = asString(config.auditPath, defaultAuditPath());
+  const hubMode = asBoolean(config.hubMode, false);
+  const fallbackAgentId = asString(config.fallbackAgentId, "");
 
   checks.push({
     code: "ai_deflector_kb_path",
@@ -34,6 +40,25 @@ export async function testEnvironment(
     level: "info",
     message: `Audit path: ${auditPath}`,
   });
+  checks.push({
+    code: "ai_deflector_hub_mode",
+    level: "info",
+    message: hubMode ? "Hub mode: enabled" : "Hub mode: disabled",
+  });
+  if (hubMode && !fallbackAgentId) {
+    checks.push({
+      code: "ai_deflector_hub_fallback_missing",
+      level: "warn",
+      message: "hubMode is enabled but fallbackAgentId is empty; unmatched issues will be skipped.",
+      hint: "Set fallbackAgentId to the CEO UUID or slug (ceo).",
+    });
+  } else if (hubMode) {
+    checks.push({
+      code: "ai_deflector_hub_fallback",
+      level: "info",
+      message: `Hub fallback agent: ${fallbackAgentId}`,
+    });
+  }
 
   try {
     const db = openKb(kbPath);
