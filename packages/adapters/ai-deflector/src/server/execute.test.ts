@@ -102,15 +102,16 @@ describe("execute", () => {
     }
   });
 
-  it("does nothing (no PATCH) when no pattern matches", async () => {
+  it("routes unmatched issues to CEO with comment, reassign, and todo", async () => {
     const dir = mkdtempSync(join(tmpdir(), "ai-deflector-ex-"));
     const kbPath = join(dir, "kb.sqlite");
     const auditPath = join(dir, "audit.jsonl");
     writeFileSync(auditPath, "");
+    const ceoId = "059ebc0d-32c4-4084-9dff-b1882b1b51c2";
 
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       const u = String(url);
-      if (u.includes("/api/issues/") && (!init || !init.method || init.method === "GET")) {
+      if (u.endsWith("/api/issues/issue-2") && (!init || !init.method || init.method === "GET")) {
         return new Response(
           JSON.stringify({
             id: "issue-2",
@@ -119,10 +120,16 @@ describe("execute", () => {
             originKind: "manual",
             originId: null,
             companyId: "co-1",
-            status: "todo",
+            status: "in_progress",
           }),
           { status: 200 },
         );
+      }
+      if (u.endsWith("/api/issues/issue-2/comments") && init?.method === "POST") {
+        return new Response(JSON.stringify({ ok: true }), { status: 201 });
+      }
+      if (u.endsWith("/api/issues/issue-2") && init?.method === "PATCH") {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
       }
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     });
@@ -138,10 +145,79 @@ describe("execute", () => {
       );
       expect(result.exitCode).toBe(0);
       expect(result.summary).toContain("pass-through");
-      const mutating = fetchMock.mock.calls.filter(
-        (c) => c[1]?.method && c[1].method !== "GET",
+      expect(result.resultJson).toMatchObject({ matched: false, routedToAgentId: ceoId });
+
+      const commentCall = fetchMock.mock.calls.find(
+        (c) => String(c[0]).endsWith("/comments") && c[1]?.method === "POST",
       );
-      expect(mutating).toHaveLength(0);
+      expect(commentCall).toBeTruthy();
+      expect(JSON.parse(String(commentCall![1]!.body))).toEqual({
+        body: "AI Deflector: no KB match found. Routing to CEO for triage and assignment to the relevant agent.",
+      });
+
+      const patchCalls = fetchMock.mock.calls.filter((c) => c[1]?.method === "PATCH");
+      expect(patchCalls).toHaveLength(2);
+      expect(JSON.parse(String(patchCalls[0]![1]!.body))).toEqual({ assigneeAgentId: ceoId });
+      expect(JSON.parse(String(patchCalls[1]![1]!.body))).toEqual({ status: "todo" });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to POST /reassign when PATCH assignee is rejected", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "ai-deflector-ex-"));
+    const kbPath = join(dir, "kb.sqlite");
+    const auditPath = join(dir, "audit.jsonl");
+    writeFileSync(auditPath, "");
+    const ceoId = "059ebc0d-32c4-4084-9dff-b1882b1b51c2";
+
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.endsWith("/api/issues/issue-3") && (!init || !init.method || init.method === "GET")) {
+        return new Response(
+          JSON.stringify({
+            id: "issue-3",
+            identifier: "AIP-3",
+            title: "Random ops ticket",
+            originKind: "manual",
+            originId: null,
+            companyId: "co-1",
+            status: "in_progress",
+          }),
+          { status: 200 },
+        );
+      }
+      if (u.endsWith("/api/issues/issue-3/comments") && init?.method === "POST") {
+        return new Response(JSON.stringify({ ok: true }), { status: 201 });
+      }
+      if (u.endsWith("/api/issues/issue-3") && init?.method === "PATCH") {
+        const body = JSON.parse(String(init.body ?? "{}")) as Record<string, unknown>;
+        if (body.assigneeAgentId) {
+          return new Response(JSON.stringify({ error: "run header required" }), { status: 422 });
+        }
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      if (u.endsWith("/api/issues/issue-3/reassign") && init?.method === "POST") {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      return new Response("missing", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const result = await execute(
+        makeCtx({
+          kbPath,
+          auditPath,
+          issueId: "issue-3",
+        }),
+      );
+      expect(result.exitCode).toBe(0);
+      const reassignCall = fetchMock.mock.calls.find(
+        (c) => String(c[0]).endsWith("/reassign") && c[1]?.method === "POST",
+      );
+      expect(reassignCall).toBeTruthy();
+      expect(JSON.parse(String(reassignCall![1]!.body))).toEqual({ agentId: ceoId });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

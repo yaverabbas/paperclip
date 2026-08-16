@@ -16,13 +16,19 @@ function parseObject(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+const CEO_FALLBACK_AGENT_ID = "059ebc0d-32c4-4084-9dff-b1882b1b51c2";
+const NO_MATCH_ROUTING_COMMENT =
+  "AI Deflector: no KB match found. Routing to CEO for triage and assignment to the relevant agent.";
+
 function resolveApiBase(config: Record<string, unknown>, context: Record<string, unknown>): string {
   const fromConfig = asString(config.apiBaseUrl, "").replace(/\/+$/, "");
   if (fromConfig) return fromConfig;
-  const fromEnv = (process.env.PAPERCLIP_API_URL ?? "").replace(/\/+$/, "").replace(/\/api$/, "");
+  const fromEnv = (process.env.PAPERCLIP_BASE_URL ?? process.env.PAPERCLIP_API_URL ?? "")
+    .replace(/\/+$/, "")
+    .replace(/\/api$/, "");
   if (fromEnv) return fromEnv;
   const fromContext = asString(context.apiBaseUrl, "").replace(/\/+$/, "");
-  return fromContext || "http://127.0.0.1:3100";
+  return fromContext || "https://goc.yaaver.com";
 }
 
 async function apiFetch(
@@ -60,12 +66,100 @@ function renderComment(template: string, vars: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => vars[key] ?? "");
 }
 
+async function reassignIssue(
+  apiBase: string,
+  issueId: string,
+  assigneeAgentId: string,
+  token: string,
+  runId: string,
+): Promise<{ ok: boolean; via: "patch" | "reassign"; status: number }> {
+  const patch = await apiFetch(apiBase, `/api/issues/${issueId}`, {
+    method: "PATCH",
+    token,
+    runId,
+    body: { assigneeAgentId },
+  });
+  if (patch.ok) return { ok: true, via: "patch", status: patch.status };
+
+  const reassign = await apiFetch(apiBase, `/api/issues/${issueId}/reassign`, {
+    method: "POST",
+    token,
+    runId,
+    body: { agentId: assigneeAgentId },
+  });
+  if (reassign.ok) return { ok: true, via: "reassign", status: reassign.status };
+  return { ok: false, via: "reassign", status: reassign.status };
+}
+
+async function routeUnmatchedToCeo(opts: {
+  apiBase: string;
+  issueId: string;
+  token: string;
+  runId: string;
+  fallbackAgentId: string;
+  onLog: AdapterExecutionContext["onLog"];
+}): Promise<{ commentStatus: number; reassignStatus: number; reassignVia: string; statusStatus: number }> {
+  const commentRes = await apiFetch(opts.apiBase, `/api/issues/${opts.issueId}/comments`, {
+    method: "POST",
+    token: opts.token,
+    runId: opts.runId,
+    body: { body: NO_MATCH_ROUTING_COMMENT },
+  });
+  if (!commentRes.ok) {
+    await opts.onLog(
+      "stderr",
+      `AI Deflector: no-match comment failed HTTP ${commentRes.status}\n`,
+    );
+  }
+
+  const reassign = await reassignIssue(
+    opts.apiBase,
+    opts.issueId,
+    opts.fallbackAgentId,
+    opts.token,
+    opts.runId,
+  );
+  if (!reassign.ok) {
+    await opts.onLog(
+      "stderr",
+      `AI Deflector: no-match reassign failed HTTP ${reassign.status} (via ${reassign.via})\n`,
+    );
+  }
+
+  const statusRes = await apiFetch(opts.apiBase, `/api/issues/${opts.issueId}`, {
+    method: "PATCH",
+    token: opts.token,
+    runId: opts.runId,
+    body: { status: "todo" },
+  });
+  if (!statusRes.ok) {
+    await opts.onLog(
+      "stderr",
+      `AI Deflector: no-match status=todo failed HTTP ${statusRes.status}\n`,
+    );
+  }
+
+  await opts.onLog(
+    "stdout",
+    `AI Deflector: routed unmatched issue to CEO via ${reassign.via} (comment=${commentRes.status} reassign=${reassign.status} status=${statusRes.status})\n`,
+  );
+
+  return {
+    commentStatus: commentRes.status,
+    reassignStatus: reassign.status,
+    reassignVia: reassign.via,
+    statusStatus: statusRes.status,
+  };
+}
+
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
   const { runId, agent, config, context, onLog, onMeta, authToken } = ctx;
   const kbPath = asString(config.kbPath, defaultKbPath());
   const auditPath = asString(config.auditPath, defaultAuditPath());
   const dryRun = asBoolean(config.dryRun, false);
   const apiBase = resolveApiBase(config, context);
+  const fallbackAgentId =
+    asString(config.fallbackAgentId, "").trim() || CEO_FALLBACK_AGENT_ID;
 
   if (onMeta) {
     await onMeta({
@@ -194,9 +288,17 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     );
 
     if (!match.matched || !match.pattern) {
-      // Spec: no match → do nothing. Heartbeat only continues work for issues
-      // with a non-null assignee; clearing assigneeAgentId would orphan the
-      // ticket. Routing/reassignment is an operator concern outside this adapter.
+      let routing: Record<string, unknown> | null = null;
+      if (!dryRun) {
+        routing = await routeUnmatchedToCeo({
+          apiBase,
+          issueId,
+          token,
+          runId,
+          fallbackAgentId,
+          onLog,
+        });
+      }
       appendAudit(auditPath, {
         ts: new Date().toISOString(),
         runId,
@@ -208,15 +310,24 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         patternId: null,
         confidence: null,
         reason: match.reason,
-        action: dryRun ? "dry_run" : "skipped",
-        detail: { originKind: issue.originKind, originStatus },
+        action: dryRun ? "dry_run" : "routed_fallback",
+        detail: {
+          originKind: issue.originKind,
+          originStatus,
+          fallbackAgentId,
+          routing,
+        },
       });
       return {
         exitCode: 0,
         signal: null,
         timedOut: false,
         summary: `AI Deflector pass-through: ${match.reason}`,
-        resultJson: { matched: false, reason: match.reason },
+        resultJson: {
+          matched: false,
+          reason: match.reason,
+          routedToAgentId: dryRun ? null : fallbackAgentId,
+        },
       };
     }
 

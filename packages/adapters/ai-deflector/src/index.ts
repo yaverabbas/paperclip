@@ -19,6 +19,8 @@ Core fields:
 - apiBaseUrl (string, optional): override Paperclip API base URL
 
 Notes:
-- Bias is toward doing nothing. Uncertain matches are skipped.
+- High-confidence matches auto-resolve as before.
+- No-match assigned issues are commented, reassigned to the CEO fallback
+  agent, and set back to todo so they are not left blocked.
 - No embeddings, no vector DB, no LLM.
 `;
