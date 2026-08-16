@@ -23,6 +23,8 @@ function makeCtx(overrides: {
   auditPath: string;
   issueId?: string;
   dryRun?: boolean;
+  hubMode?: boolean;
+  fallbackAgentId?: string;
 }): AdapterExecutionContext {
   return {
     runId: "run-1",
@@ -33,6 +35,8 @@ function makeCtx(overrides: {
       auditPath: overrides.auditPath,
       dryRun: overrides.dryRun ?? false,
       apiBaseUrl: "http://test.local",
+      hubMode: overrides.hubMode ?? false,
+      fallbackAgentId: overrides.fallbackAgentId ?? "",
     },
     context: {
       paperclipIssue: overrides.issueId
@@ -43,6 +47,9 @@ function makeCtx(overrides: {
     authToken: "test-token",
   };
 }
+
+const CEO_ID = "11111111-1111-4111-8111-111111111111";
+const PM_ID = "22222222-2222-4222-8222-222222222222";
 
 describe("execute", () => {
   beforeEach(() => {
@@ -142,6 +149,261 @@ describe("execute", () => {
         (c) => c[1]?.method && c[1].method !== "GET",
       );
       expect(mutating).toHaveLength(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("hub mode resolves matching unassigned todos and fallback-assigns the rest", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "ai-deflector-hub-"));
+    const kbPath = join(dir, "kb.sqlite");
+    const auditPath = join(dir, "audit.jsonl");
+    writeFileSync(auditPath, "");
+
+    const patches: Array<{ url: string; body: Record<string, unknown> }> = [];
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/issues?") && (!init || !init.method || init.method === "GET")) {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "issue-match",
+              identifier: "AIP-10",
+              title: "Recover stalled issue AIP-9",
+            },
+            {
+              id: "issue-miss",
+              identifier: "AIP-11",
+              title: "Ship new landing page",
+            },
+          ]),
+          { status: 200 },
+        );
+      }
+      if (u.endsWith("/api/issues/issue-match") && (!init || !init.method || init.method === "GET")) {
+        return new Response(
+          JSON.stringify({
+            id: "issue-match",
+            identifier: "AIP-10",
+            title: "Recover stalled issue AIP-9",
+            originKind: "stranded_issue_recovery",
+            originId: "origin-1",
+            companyId: "co-1",
+            status: "todo",
+          }),
+          { status: 200 },
+        );
+      }
+      if (u.endsWith("/api/issues/issue-miss") && (!init || !init.method || init.method === "GET")) {
+        return new Response(
+          JSON.stringify({
+            id: "issue-miss",
+            identifier: "AIP-11",
+            title: "Ship new landing page",
+            originKind: "manual",
+            originId: null,
+            companyId: "co-1",
+            status: "todo",
+          }),
+          { status: 200 },
+        );
+      }
+      if (u.endsWith("/api/issues/origin-1")) {
+        return new Response(JSON.stringify({ id: "origin-1", status: "done" }), { status: 200 });
+      }
+      if (init?.method === "PATCH") {
+        patches.push({ url: u, body: JSON.parse(String(init.body)) });
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      return new Response("missing", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const result = await execute(
+        makeCtx({ kbPath, auditPath, hubMode: true, fallbackAgentId: CEO_ID }),
+      );
+      expect(result.exitCode).toBe(0);
+      expect(result.summary).toContain("resolved=1");
+      expect(result.summary).toContain("fallback=1");
+      expect(result.resultJson).toMatchObject({
+        processed: 2,
+        routed: 0,
+        resolved: 1,
+        fallback: 1,
+        errors: 0,
+      });
+      expect(patches).toHaveLength(2);
+      expect(patches[0]?.body.status).toBe("done");
+      expect(patches[1]?.body.assigneeAgentId).toBe(CEO_ID);
+      expect(patches[1]?.body.comment).toContain("no pattern matched");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("hub mode routes matched issues to routeToAgent instead of resolving", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "ai-deflector-hub-route-"));
+    const kbPath = join(dir, "kb.sqlite");
+    const auditPath = join(dir, "audit.jsonl");
+    writeFileSync(auditPath, "");
+
+    loadPatterns.mockReturnValue([
+      {
+        ...SEED_PATTERNS[0]!,
+        routeToAgent: "product-manager",
+        commentTemplate: "Routed by AI Deflector (pattern: {{patternId}}).",
+      },
+    ]);
+
+    const patches: Array<{ url: string; body: Record<string, unknown> }> = [];
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/companies/co-1/agents")) {
+        return new Response(
+          JSON.stringify([
+            { id: CEO_ID, role: "ceo", name: "CEO" },
+            { id: PM_ID, role: "pm", name: "product-manager" },
+          ]),
+          { status: 200 },
+        );
+      }
+      if (u.includes("/issues?") && (!init || !init.method || init.method === "GET")) {
+        return new Response(
+          JSON.stringify([{ id: "issue-route", identifier: "AIP-12", title: "Recover stalled issue AIP-9" }]),
+          { status: 200 },
+        );
+      }
+      if (u.endsWith("/api/issues/issue-route") && (!init || !init.method || init.method === "GET")) {
+        return new Response(
+          JSON.stringify({
+            id: "issue-route",
+            identifier: "AIP-12",
+            title: "Recover stalled issue AIP-9",
+            originKind: "stranded_issue_recovery",
+            originId: "origin-1",
+            companyId: "co-1",
+            status: "todo",
+          }),
+          { status: 200 },
+        );
+      }
+      if (u.endsWith("/api/issues/origin-1")) {
+        return new Response(JSON.stringify({ id: "origin-1", status: "done" }), { status: 200 });
+      }
+      if (init?.method === "PATCH") {
+        patches.push({ url: u, body: JSON.parse(String(init.body)) });
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      return new Response("missing", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const result = await execute(
+        makeCtx({ kbPath, auditPath, hubMode: true, fallbackAgentId: CEO_ID }),
+      );
+      expect(result.exitCode).toBe(0);
+      expect(result.resultJson).toMatchObject({
+        processed: 1,
+        routed: 1,
+        resolved: 0,
+        fallback: 0,
+        errors: 0,
+      });
+      expect(patches).toHaveLength(1);
+      expect(patches[0]?.body.assigneeAgentId).toBe(PM_ID);
+      expect(patches[0]?.body.status).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("hub mode dry-run does not PATCH", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "ai-deflector-hub-dry-"));
+    const kbPath = join(dir, "kb.sqlite");
+    const auditPath = join(dir, "audit.jsonl");
+    writeFileSync(auditPath, "");
+
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/issues?") && (!init || !init.method || init.method === "GET")) {
+        return new Response(
+          JSON.stringify([{ id: "issue-miss", identifier: "AIP-13", title: "Random work" }]),
+          { status: 200 },
+        );
+      }
+      if (u.includes("/api/issues/issue-miss")) {
+        return new Response(
+          JSON.stringify({
+            id: "issue-miss",
+            identifier: "AIP-13",
+            title: "Random work",
+            originKind: "manual",
+            originId: null,
+            companyId: "co-1",
+            status: "todo",
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const result = await execute(
+        makeCtx({ kbPath, auditPath, hubMode: true, fallbackAgentId: CEO_ID, dryRun: true }),
+      );
+      expect(result.exitCode).toBe(0);
+      expect(result.resultJson).toMatchObject({ fallback: 1, errors: 0 });
+      expect(fetchMock.mock.calls.filter((c) => c[1]?.method === "PATCH")).toHaveLength(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("hub mode records HTTP errors when fallback PATCH fails", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "ai-deflector-hub-err-"));
+    const kbPath = join(dir, "kb.sqlite");
+    const auditPath = join(dir, "audit.jsonl");
+    writeFileSync(auditPath, "");
+
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/issues?") && (!init || !init.method || init.method === "GET")) {
+        return new Response(
+          JSON.stringify([{ id: "issue-miss", identifier: "AIP-14", title: "Random work" }]),
+          { status: 200 },
+        );
+      }
+      if (u.includes("/api/issues/issue-miss") && (!init || !init.method || init.method === "GET")) {
+        return new Response(
+          JSON.stringify({
+            id: "issue-miss",
+            identifier: "AIP-14",
+            title: "Random work",
+            originKind: "manual",
+            originId: null,
+            companyId: "co-1",
+            status: "todo",
+          }),
+          { status: 200 },
+        );
+      }
+      if (init?.method === "PATCH") {
+        return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
+      }
+      return new Response("missing", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const result = await execute(
+        makeCtx({ kbPath, auditPath, hubMode: true, fallbackAgentId: CEO_ID }),
+      );
+      expect(result.exitCode).toBe(1);
+      expect(result.resultJson).toMatchObject({ fallback: 0, errors: 1 });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

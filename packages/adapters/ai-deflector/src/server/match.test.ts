@@ -71,6 +71,10 @@ describe("matchIssue", () => {
     });
     expect(result.matched).toBe(true);
   });
+
+  it("seed patterns default routeToAgent to null (auto-resolve)", () => {
+    expect(SEED_PATTERNS.every((p) => p.routeToAgent === null)).toBe(true);
+  });
 });
 
 describe("parseAiDeflectorStdout", () => {
@@ -102,6 +106,11 @@ describe("kb sqlite bindings", () => {
         expect(seedKbIfEmpty(db)).toBe(0);
         const patterns = loadPatterns(db);
         expect(patterns.some((p) => p.id === "stranded_issue_recovery_source_terminal")).toBe(true);
+        expect(patterns.every((p) => p.routeToAgent === null)).toBe(true);
+        upsertPatterns(db, [{ ...SEED_PATTERNS[0]!, routeToAgent: "ceo", enabled: true }]);
+        expect(
+          loadPatterns(db).find((p) => p.id === "stranded_issue_recovery_source_terminal")?.routeToAgent,
+        ).toBe("ceo");
         upsertPatterns(db, [{ ...SEED_PATTERNS[0]!, enabled: false }]);
         expect(loadPatterns(db).some((p) => p.id === "stranded_issue_recovery_source_terminal")).toBe(
           false,
