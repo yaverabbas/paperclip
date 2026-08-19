@@ -554,6 +554,26 @@ const SESSIONED_LOCAL_ADAPTERS = new Set([
 // Routes and the scheduler construct separate heartbeatService instances, but
 // they must agree on in-process adapter executions when reaping stale runs.
 const activeRunExecutions = new Set<string>();
+
+// Startup concurrency limiter: prevent too many executeRun calls from hitting
+// PGlite simultaneously during startup, which causes the embedded DB process to crash.
+const MAX_CONCURRENT_RUN_INITIALIZATIONS = 5;
+let activeRunInitializations = 0;
+const runInitializationWaiters: Array<() => void> = [];
+
+async function waitForRunInitializationSlot(): Promise<() => void> {
+  if (activeRunInitializations < MAX_CONCURRENT_RUN_INITIALIZATIONS) {
+    activeRunInitializations++;
+  } else {
+    await new Promise<void>((resolve) => runInitializationWaiters.push(resolve));
+    activeRunInitializations++;
+  }
+  return function releaseRunInitializationSlot() {
+    activeRunInitializations = Math.max(0, activeRunInitializations - 1);
+    const next = runInitializationWaiters.shift();
+    if (next) next();
+  };
+}
 const INLINE_BASE64_IMAGE_DATA_RE = /("type":"image","source":\{"type":"base64","data":")([A-Za-z0-9+/=]{1024,})(")/g;
 
 type RuntimeConfigSecretResolver = Pick<
@@ -11749,20 +11769,28 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
   async function executeRun(runId: string) {
     if ((await getSchedulingSuppression()).suppressed) return;
 
+    // Limit concurrent initializations to prevent PGlite DB overload on startup.
+    // At most MAX_CONCURRENT_RUN_INITIALIZATIONS runs may be in the initial claim
+    // phase at once. The slot is released as soon as the run is claimed; the actual
+    // agent execution (which can run for minutes) is not subject to this limit.
+    const releaseInitSlot = await waitForRunInitializationSlot();
+
     let run = await getRun(runId);
-    if (!run) return;
-    if (run.status !== "queued" && run.status !== "running") return;
+    if (!run) { releaseInitSlot(); return; }
+    if (run.status !== "queued" && run.status !== "running") { releaseInitSlot(); return; }
 
     if (run.status === "queued") {
       const claimed = await claimQueuedRun(run);
       if (!claimed) {
         // claimQueuedRun can also leave the run queued when dependencies are unresolved.
+        releaseInitSlot();
         return;
       }
       run = claimed;
     }
 
     activeRunExecutions.add(run.id);
+    releaseInitSlot();
     let runScratch: HeartbeatRunScratch | null = null;
 
     try {
