@@ -574,6 +574,31 @@ async function waitForRunInitializationSlot(): Promise<() => void> {
     if (next) next();
   };
 }
+
+const PAPERCLIP_MAX_ACTIVE_RUNS = parseInt(process.env.PAPERCLIP_MAX_ACTIVE_RUNS ?? "0", 10) || 0;
+let activeRunSemaphoreCount = 0;
+const activeRunSemaphoreWaiters: Array<() => void> = [];
+
+async function acquireActiveRunSlot(): Promise<() => void> {
+  if (PAPERCLIP_MAX_ACTIVE_RUNS <= 0) {
+    return () => {};
+  }
+  if (activeRunSemaphoreCount < PAPERCLIP_MAX_ACTIVE_RUNS) {
+    activeRunSemaphoreCount++;
+  } else {
+    await new Promise<void>((resolve) => activeRunSemaphoreWaiters.push(resolve));
+    activeRunSemaphoreCount++;
+  }
+  let released = false;
+  return function releaseActiveRunSlot() {
+    if (released) return;
+    released = true;
+    activeRunSemaphoreCount = Math.max(0, activeRunSemaphoreCount - 1);
+    const next = activeRunSemaphoreWaiters.shift();
+    if (next) next();
+  };
+}
+
 const INLINE_BASE64_IMAGE_DATA_RE = /("type":"image","source":\{"type":"base64","data":")([A-Za-z0-9+/=]{1024,})(")/g;
 
 type RuntimeConfigSecretResolver = Pick<
@@ -11769,6 +11794,10 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
   async function executeRun(runId: string) {
     if ((await getSchedulingSuppression()).suppressed) return;
 
+    // Whole-run concurrency cap: acquire BEFORE getRun/claimQueuedRun so waiting
+    // runs stay "queued" in the DB rather than being claimed and blocked in memory.
+    const releaseActiveRunSlot = await acquireActiveRunSlot();
+
     // Limit concurrent initializations to prevent PGlite DB overload on startup.
     // At most MAX_CONCURRENT_RUN_INITIALIZATIONS runs may be in the initial claim
     // phase at once. The slot is released as soon as the run is claimed; the actual
@@ -11776,14 +11805,15 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
     const releaseInitSlot = await waitForRunInitializationSlot();
 
     let run = await getRun(runId);
-    if (!run) { releaseInitSlot(); return; }
-    if (run.status !== "queued" && run.status !== "running") { releaseInitSlot(); return; }
+    if (!run) { releaseInitSlot(); releaseActiveRunSlot(); return; }
+    if (run.status !== "queued" && run.status !== "running") { releaseInitSlot(); releaseActiveRunSlot(); return; }
 
     if (run.status === "queued") {
       const claimed = await claimQueuedRun(run);
       if (!claimed) {
         // claimQueuedRun can also leave the run queued when dependencies are unresolved.
         releaseInitSlot();
+        releaseActiveRunSlot();
         return;
       }
       run = claimed;
@@ -14300,6 +14330,7 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
             }
           }
           activeRunExecutions.delete(run.id);
+          releaseActiveRunSlot();
           await startNextQueuedRunForAgent(run.agentId);
         }
   }

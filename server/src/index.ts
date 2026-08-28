@@ -869,13 +869,14 @@ export async function startServer(): Promise<StartedServer> {
 
     // Reap orphaned runs before timer ticks start so wakeups cannot coalesce
     // into a dead "running" row during startup recovery.
+    let startupHeartbeatRecovery: Promise<void> = Promise.resolve();
     if (heartbeatSchedulingSuppression.suppressed) {
       logger.warn(
         { reason: heartbeatSchedulingSuppression.reason },
         "heartbeat scheduling suppressed for this runtime instance",
       );
     } else {
-      const startupHeartbeatRecovery = (async () => {
+      startupHeartbeatRecovery = (async () => {
         try {
           const hotRestart = await heartbeat.reconcileHotRestartAdoption();
           if (hotRestart.mode === "reported") {
@@ -962,20 +963,21 @@ export async function startServer(): Promise<StartedServer> {
         logger.error({ err }, "startup heartbeat recovery failed");
       });
       trackHeartbeatSchedulerWork(startupHeartbeatRecovery);
-      await startupHeartbeatRecovery;
     }
 
-    const setupCleanup = await environmentCustomImages.cleanupExpiredSetupSessions();
-    if (setupCleanup.timedOut > 0 || setupCleanup.failed > 0) {
-      logger.warn({ ...setupCleanup }, "startup environment customImage setup cleanup changed sessions");
-    }
+    void startupHeartbeatRecovery.then(async () => {
+      if (heartbeatSchedulerStopped) return;
+      const setupCleanup = await environmentCustomImages.cleanupExpiredSetupSessions();
+      if (setupCleanup.timedOut > 0 || setupCleanup.failed > 0) {
+        logger.warn({ ...setupCleanup }, "startup environment customImage setup cleanup changed sessions");
+      }
 
-    const toolHealthSweep = await tools.sweepConnectionHealth();
-    if (toolHealthSweep.failed > 0) {
-      logger.warn({ ...toolHealthSweep }, "startup tool connection health sweep found failing connections");
-    }
+      const toolHealthSweep = await tools.sweepConnectionHealth();
+      if (toolHealthSweep.failed > 0) {
+        logger.warn({ ...toolHealthSweep }, "startup tool connection health sweep found failing connections");
+      }
 
-    heartbeatSchedulerInterval = setInterval(() => {
+      heartbeatSchedulerInterval = setInterval(() => {
       // Async so the suppression checks below can honor the override-aware
       // resolver (e.g. worktree run-execution opt-in). The gated work is still
       // wrapped in trackHeartbeatSchedulerWork with its own error handling.
@@ -1098,8 +1100,11 @@ export async function startServer(): Promise<StartedServer> {
         }
       })();
     }, config.heartbeatSchedulerIntervalMs);
+    }).catch((err) => {
+      logger.error({ err }, "post-startup heartbeat setup failed");
+    });
   }
-  
+
   if (config.databaseBackupEnabled) {
     const backupIntervalMs = config.databaseBackupIntervalMinutes * 60 * 1000;
 
