@@ -4758,6 +4758,10 @@ export function accessRoutes(
           grantCount: req.body.grants?.length ?? 0,
         },
       });
+      if (updated.principalType === "agent") {
+        res.json({ ...updated, grants: req.body.grants ?? [] });
+        return;
+      }
       const member = (await loadCompanyMemberRecords(db, companyId)).find(
         (entry) => entry.id === memberId,
       );
