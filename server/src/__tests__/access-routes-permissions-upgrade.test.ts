@@ -164,4 +164,46 @@ describeEmbeddedPostgres("access routes permissions upgrade compatibility", () =
       grantedByUserId: owner.principalId,
     });
   });
+
+  it("allows an owner to grant an existing agent without changing its membership", async () => {
+    const { company, owner } = await createCompanyWithOwner(db);
+    const agentMembership = await db
+      .insert(companyMemberships)
+      .values({
+        companyId: company.id,
+        principalType: "agent",
+        principalId: randomUUID(),
+        status: "active",
+        membershipRole: "member",
+      })
+      .returning()
+      .then((rows) => rows[0]!);
+
+    const res = await request(await createApp(db, company.id, owner.principalId))
+      .patch(`/api/companies/${company.id}/members/${agentMembership.id}/permissions`)
+      .send({ grants: [{ permissionKey: "agents:configure", scope: null }] });
+
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.principalType).toBe("agent");
+    expect(res.body.membershipRole).toBe("member");
+    expect(res.body.grants).toEqual([
+      expect.objectContaining({ permissionKey: "agents:configure" }),
+    ]);
+
+    const grants = await db
+      .select()
+      .from(principalPermissionGrants)
+      .where(
+        and(
+          eq(principalPermissionGrants.companyId, company.id),
+          eq(principalPermissionGrants.principalType, "agent"),
+          eq(principalPermissionGrants.principalId, agentMembership.principalId),
+        ),
+      );
+    expect(grants).toHaveLength(1);
+    expect(grants[0]).toMatchObject({
+      permissionKey: "agents:configure",
+      grantedByUserId: owner.principalId,
+    });
+  });
 });

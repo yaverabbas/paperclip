@@ -1269,7 +1269,10 @@ async function getProtectedMemberReason(
     operation?: "archive" | "update";
   },
 ): Promise<string | null> {
-  if (member.principalType !== "user") return "Only human company members can be removed.";
+  if (member.principalType !== "user") {
+    // Agent memberships may receive explicit grants, but removal remains a human-only flow.
+    return opts?.operation === "archive" ? "Only human company members can be removed." : null;
+  }
   if (req.actor.type !== "board") return "Board access is required to remove members.";
   if (member.principalId === req.actor.userId) return "You cannot remove yourself.";
   const isTargetInstanceAdmin = opts?.instanceAdminUserIds
@@ -4461,6 +4464,9 @@ export function accessRoutes(
       const memberToUpdate = await access.getMemberById(companyId, memberId);
       if (!memberToUpdate) throw notFound("Member not found");
       await assertCanManageCompanyMember(req, access, companyId, memberToUpdate);
+      if (memberToUpdate.principalType === "agent" && req.body.membershipRole !== undefined) {
+        throw badRequest("Agent membership roles cannot be changed through this endpoint.");
+      }
 
       const updated = await db.transaction(async (tx) => {
         await tx.execute(sql`
@@ -4540,6 +4546,10 @@ export function accessRoutes(
         },
       });
 
+      if (updated.principalType === "agent") {
+        res.json({ ...updated, grants: req.body.grants ?? [] });
+        return;
+      }
       const member = (await loadCompanyMemberRecords(db, companyId)).find(
         (entry) => entry.id === memberId,
       );
@@ -4667,6 +4677,10 @@ export function accessRoutes(
         },
       });
 
+      if (updated.principalType === "agent") {
+        res.json({ ...updated, grants: req.body.grants ?? [] });
+        return;
+      }
       const member = (await loadCompanyMemberRecords(db, companyId)).find(
         (entry) => entry.id === memberId,
       );
