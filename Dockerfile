@@ -62,7 +62,7 @@ ARG USER_UID=1000
 ARG USER_GID=1000
 WORKDIR /app
 COPY --chown=node:node --from=build /app /app
-RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai @google/gemini-cli@latest agent-browser \
+RUN npm install --global --prefix /usr/local --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai @google/gemini-cli@latest agent-browser \
   && apt-get update \
   && apt-get install -y --no-install-recommends \
     openssh-client jq \
@@ -74,7 +74,7 @@ RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/cod
     libdrm2 libxkbcommon0 libatspi2.0-0t64 libcups2t64 libxshmfence1 libgbm1 \
     fonts-noto-color-emoji fonts-noto-cjk fonts-freefont-ttf \
   && mkdir -p /paperclip \
-  && HOME=/paperclip agent-browser install \
+  && HOME=/paperclip /usr/local/bin/agent-browser install \
   && rm -rf /var/lib/apt/lists/* \
   && chown -R node:node /paperclip
 
