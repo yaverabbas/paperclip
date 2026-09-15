@@ -675,6 +675,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     const runtimeExecutionTarget = overrideAdapterExecutionTargetRemoteCwd(executionTarget, effectiveExecutionCwd);
     const executionTargetIsSandbox =
       runtimeExecutionTarget?.kind === "remote" && runtimeExecutionTarget.transport === "sandbox";
+    // Codex refuses a non-Git fallback workspace unless this is explicit. Keep
+    // the default trust check for real project workspaces.
+    const executionCwdRequiresTrustBypass =
+      executionTargetIsSandbox || !(await pathExists(path.join(effectiveExecutionCwd, ".git")));
     const restoreRemoteWorkspace = preparedExecutionTargetRuntime
       ? () => preparedExecutionTargetRuntime.restoreWorkspace((line) => onLog("stdout", line))
       : null;
@@ -978,9 +982,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       }
       return notes;
     })();
-    if (executionTargetIsSandbox) {
+    if (executionCwdRequiresTrustBypass) {
       commandNotes.push(
-        "Added --skip-git-repo-check for sandbox execution because Codex requires an explicit trust bypass in headless remote workspaces.",
+        "Added --skip-git-repo-check because this run uses a managed non-Git workspace.",
       );
     }
     if (preparedRuntimeConfig.notes.length > 0) {
@@ -1012,7 +1016,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         forceSaferInvocation ? { ...config, fastMode: false } : config,
         {
           resumeSessionId,
-          skipGitRepoCheck: executionTargetIsSandbox,
+          skipGitRepoCheck: executionCwdRequiresTrustBypass,
         },
       );
       const args = execArgs.args;
