@@ -39,4 +39,17 @@ if [ "$changed" = "1" ]; then
     chown -R node:node /paperclip
 fi
 
+# Coolify persists the Paperclip instance under /app, while the shared Codex
+# home is recreated with each container. Restore an existing subscription login
+# before Paperclip seeds the managed per-company homes.
+if [ ! -f /paperclip/.codex/auth.json ]; then
+    persisted_codex_auth=$(find /app/.paperclip/instances -path '*/companies/*/codex-home/.codex/auth.json' -type f -print -quit 2>/dev/null || true)
+    if [ -n "$persisted_codex_auth" ]; then
+        mkdir -p /paperclip/.codex
+        cp "$persisted_codex_auth" /paperclip/.codex/auth.json
+        chown node:node /paperclip/.codex/auth.json
+        chmod 600 /paperclip/.codex/auth.json
+    fi
+fi
+
 exec gosu node "$@"
