@@ -64,11 +64,19 @@ WORKDIR /app
 COPY --chown=node:node --from=build /app /app
 RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai @google/gemini-cli@latest agent-browser \
   && apt-get update \
-  && apt-get install -y --no-install-recommends openssh-client jq \
-  && agent-browser install --with-deps \
-  && rm -rf /var/lib/apt/lists/* \
+  && apt-get install -y --no-install-recommends \
+    openssh-client jq \
+    libxcb-shm0 libx11-xcb1 libx11-6 libxcb1 libxext6 libxrandr2 \
+    libxcomposite1 libxcursor1 libxdamage1 libxfixes3 libxi6 libgtk-3-0t64 \
+    libpangocairo-1.0-0 libpango-1.0-0 libatk1.0-0t64 libcairo-gobject2 \
+    libcairo2 libgdk-pixbuf-2.0-0 libxrender1 libasound2t64 libfreetype6 \
+    libfontconfig1 libdbus-1-3 libnss3 libnss3-tools libnspr4 libatk-bridge2.0-0t64 \
+    libdrm2 libxkbcommon0 libatspi2.0-0t64 libcups2t64 libxshmfence1 libgbm1 \
+    fonts-noto-color-emoji fonts-noto-cjk fonts-freefont-ttf \
   && mkdir -p /paperclip \
-  && chown node:node /paperclip
+  && HOME=/paperclip agent-browser install \
+  && rm -rf /var/lib/apt/lists/* \
+  && chown -R node:node /paperclip
 
 COPY scripts/docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
