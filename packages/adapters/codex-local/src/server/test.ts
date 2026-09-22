@@ -184,6 +184,18 @@ async function prepareCodexHelloProbe(input: {
     };
   }
 
+  if (!input.targetIsRemote) {
+    const managedHome = await prepareManagedCodexHome(process.env, async () => {}, input.companyId, {
+      apiKey: null,
+    });
+    return {
+      command: input.command,
+      args: input.args,
+      env: { ...input.env, CODEX_HOME: managedHome },
+      cleanup,
+    };
+  }
+
   return {
     command: input.command,
     args: input.args,

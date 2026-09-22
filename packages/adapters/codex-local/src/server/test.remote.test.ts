@@ -219,6 +219,26 @@ describe("codex remote environment diagnostics", () => {
     expect(probeCall?.[3]).toContain("--skip-git-repo-check");
   });
 
+  it("uses the managed CODEX_HOME for local subscription-auth hello probes", async () => {
+    const result = await testEnvironment({
+      companyId: "company-1",
+      adapterType: "codex_local",
+      config: {
+        engine: "cli",
+        command: "codex",
+      },
+      executionTarget: null,
+      environmentName: "Local",
+    });
+
+    expect(result.status).toBe("pass");
+    expect(prepareManagedCodexHome).toHaveBeenCalledTimes(1);
+    const probeCall = runAdapterExecutionTargetProcess.mock.calls[0] as unknown as
+      | [string, null, string, string[], { cwd: string; env: Record<string, string> }]
+      | undefined;
+    expect(probeCall?.[4].env.CODEX_HOME).toContain(`${os.tmpdir()}/paperclip-managed-codex-home-`);
+  });
+
   it("does not override CODEX_HOME when the host has no credentials to seed", async () => {
     // Custom-image flow: the login lives inside the captured snapshot, and the
     // host has no Codex auth.json. The probe must not upload an empty home or
