@@ -24,7 +24,7 @@ import { parseCodexJsonl } from "./parse.js";
 import { SANDBOX_INSTALL_COMMAND } from "../index.js";
 import { codexHomeDir, readCodexAuthInfo } from "./quota.js";
 import { buildCodexExecArgs } from "./codex-args.js";
-import { prepareManagedCodexHome } from "./codex-home.js";
+import { pathExists, prepareManagedCodexHome } from "./codex-home.js";
 import { resolveCodexExecutionEngineForRun, testCodexAcpEnvironment } from "./acp.js";
 
 function summarizeStatus(checks: AdapterEnvironmentCheck[]): AdapterEnvironmentTestResult["status"] {
@@ -327,9 +327,11 @@ export async function testEnvironment(
         hint: "Use the `codex` CLI command to run the automatic login and installation probe.",
       });
     } else {
+      const cwdRequiresTrustBypass =
+        targetIsSandbox || !(await pathExists(path.join(cwd, ".git")));
       const execArgs = buildCodexExecArgs(
         { ...config, fastMode: false },
-        { skipGitRepoCheck: targetIsSandbox },
+        { skipGitRepoCheck: cwdRequiresTrustBypass },
       );
       const args = execArgs.args;
       if (execArgs.fastModeIgnoredReason) {
@@ -340,12 +342,12 @@ export async function testEnvironment(
           hint: "Switch the agent model to GPT-5.4 or enter a manual model ID to enable Codex Fast mode.",
         });
       }
-      if (targetIsSandbox) {
+      if (cwdRequiresTrustBypass) {
         checks.push({
           code: "codex_git_repo_check_skipped",
           level: "info",
-          message: "Added --skip-git-repo-check for sandbox hello probes.",
-          hint: "Codex requires an explicit trust bypass in headless remote sandbox workspaces.",
+          message: "Added --skip-git-repo-check for the hello probe.",
+          hint: "Codex requires an explicit trust bypass in headless non-Git workspaces.",
         });
       }
 
